@@ -1,0 +1,85 @@
+import os
+import openai
+from dotenv import load_dotenv
+import time
+import speech_recognition as sr
+import pyttsx3
+import numpy as np
+
+mytext = 'Welcome!'
+language = 'en'
+
+openai.api_key = 'SECRET KEY GOES HERE'
+load_dotenv()
+model = 'gpt-3.5-turbo'
+
+r = sr.Recognizer()
+engine = pyttsx3.init("dummy")
+voice = engine.getProperty('voices')[1]
+engine.setProperty('voice', voice.id) #changes the voice
+
+name = "Danielle"
+greetings = [f"whats up master {name}",
+             "yeah?",
+             "Well, hello there, Master of Puns and Jokes - how's it going today?",
+             f"Ahoy there, Captain {name}! How's the ship sailing?",
+             f"Bonjour, Monsieur {name}! Comment ça va? Wait, why am I speaking French?"]
+
+# Listen for the wake word "hey"
+def listen_for_wake_word(source):
+    print("Listening for 'Hey'...")
+
+    while True:
+        audio = r.listen(source)
+        try:
+            text = r.recognize_google(audio)
+            if "hey" in text.lower():
+                print("Wake word detected.")
+                engine.say(np.random.choice(greetings))
+                engine.runAndWait()
+                return True
+        except sr.UnknownValueError:
+            pass
+
+# Listen for input and respond with OpenAI API
+def listen_and_respond(source):
+    print("Listening...")
+
+    while True:
+        audio = r.listen(source)
+        try:
+            text = r.recognize_google(audio)
+            print(f"You said: {text}")
+            if not text:
+                continue
+
+            # Send input to OpenAI API
+            response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": f"{text}"}])
+            response_text = response.choices[0].message.content
+            print(response_text)
+            # Speak the response
+            print("speaking")
+            os.system("espeak ' " + response_text + "'")
+            engine.say(response_text)
+            engine.runAndWait()
+
+            # Return to listening for the wake word
+            return True
+
+        except sr.UnknownValueError:
+            time.sleep(2)
+            print("Silence found, shutting up, listening...")
+            return False
+
+        except sr.RequestError as e:
+            print(f"Could not request results; {e}")
+            engine.say(f"Could not request results; {e}")
+            engine.runAndWait()
+            return False
+
+# Use the default microphone as the audio source
+with sr.Microphone() as source:
+    while True:
+        if listen_for_wake_word(source):
+            if not listen_and_respond(source):
+                break
